@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}Niveau 1 — Réseau Routier{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <div class="topbar-title">🔗 Niveau 1 — Réseau Routier</div>
+    <div class="topbar-sub">Graphe G=(V,E) · Algorithme de Dijkstra · Matrice des distances</div>
+  </div>
+  <div class="topbar-actions">
+    <span class="badge badge-blue niveau-pill n1">N1</span>
+    <button class="btn btn-primary" onclick="calculer()">▶ Calculer</button>
+  </div>
+</div>
+<div class="content">
+  <div class="grid grid-3 mb-4" id="stats-row" style="display:none">
+    <div class="stat-card">
+      <div class="stat-value font-mono" id="nb-sommets" style="color:var(--accent)">—</div>
+      <div class="stat-label">Sommets |V|</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value font-mono" id="nb-aretes">—</div>
+      <div class="stat-label">Arêtes |E|</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value font-mono" id="connexe" style="color:var(--green)">—</div>
+      <div class="stat-label">Connexité</div>
+    </div>
+  </div>
+
+  <div class="grid grid-2 mb-4">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🗺️ Réseau routier d'Agadir</div>
+      </div>
+      <div style="height:420px;border-radius:0 0 12px 12px;overflow:hidden">
+        <div id="map1" style="height:100%;width:100%"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🔍 Recherche de chemin (Dijkstra)</div>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label class="form-label">Point de départ</label>
+          <select class="form-select" id="sel-depart">
+            <option value="0">0 — Dépôt Central</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Point d'arrivée</label>
+          <select class="form-select" id="sel-arrivee">
+          </select>
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="rechercherChemin()">
+          🔍 Trouver le plus court chemin
+        </button>
+        <div id="chemin-result" style="margin-top:16px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="matrice-card" style="display:none">
+    <div class="card-header">
+      <div class="card-title">📊 Matrice des distances (km)</div>
+      <button class="btn btn-sm btn-secondary" onclick="toggleMatrice()">Masquer</button>
+    </div>
+    <div class="card-body" style="overflow-x:auto">
+      <div id="matrice-container"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let map1, resultData;
+
+async function calculer() {
+  document.querySelector('.btn-primary').innerHTML = '<span class="spinner"></span> Calcul...';
+  const data = await api('/api/niveau1/calculer', 'POST');
+  document.querySelector('.btn-primary').innerHTML = '▶ Calculer';
+  if (!data.success) { showToast(data.error, 'error'); return; }
+  resultData = data;
+
+  document.getElementById('stats-row').style.display = 'grid';
+  document.getElementById('nb-sommets').textContent = data.nb_sommets;
+  document.getElementById('nb-aretes').textContent = data.nb_aretes;
+  document.getElementById('connexe').textContent = data.connexe ? '✓ Connexe' : '✗ Non connexe';
+  document.getElementById('connexe').style.color = data.connexe ? 'var(--green)' : 'var(--red)';
+
+  // Matrice
+  const ids = data.ids_sommets;
+  let html = '<table class="table"><thead><tr><th>#</th>';
+  ids.forEach(id => html += `<th class="font-mono" style="min-width:65px">P${id}</th>`);
+  html += '</tr></thead><tbody>';
+  data.matrice.forEach((row, i) => {
+    html += `<tr><td class="font-mono" style="color:var(--accent)">P${ids[i]}</td>`;
+    row.forEach((v, j) => {
+      const isZero = i===j;
+      html += `<td class="font-mono" style="font-size:12px;${isZero?'color:var(--muted)':v<1?'color:var(--green)':v>5?'color:var(--orange)':''}">${isZero ? '—' : v.toFixed(2)}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('matrice-container').innerHTML = html;
+  document.getElementById('matrice-card').style.display = 'block';
+  showToast(`Graphe calculé: ${data.nb_sommets} sommets, ${data.nb_aretes} arêtes`);
+  dessinerReseau();
+}
+
+function toggleMatrice() {
+  const b = document.querySelector('#matrice-card .card-body');
+  b.style.display = b.style.display==='none'?'block':'none';
+}
+
+async function rechercherChemin() {
+  const dep = parseInt(document.getElementById('sel-depart').value);
+  const arr = parseInt(document.getElementById('sel-arrivee').value);
+  if (dep === arr) { showToast('Départ = Arrivée', 'error'); return; }
+  const r = await api('/api/niveau1/chemin', 'POST', {depart:dep, arrivee:arr});
+  const div = document.getElementById('chemin-result');
+  div.innerHTML = `
+    <div class="alert alert-info">
+      <div style="font-size:13px;font-weight:600;margin-bottom:6px">🛤️ Chemin optimal: P${dep} → P${arr}</div>
+      <div style="font-family:var(--mono);font-size:13px">${r.chemin.map(x=>'P'+x).join(' → ')}</div>
+      <div style="margin-top:8px;font-size:14px">📏 Distance: <b>${r.distance.toFixed(3)} km</b></div>
+    </div>`;
+  // Tracer sur la carte
+  if (map1 && r.chemin.length > 1) {
+    drawPathOnMap(r.chemin);
+  }
+}
+
+function drawPathOnMap(chemin) {
+  if (!window.pathLayer) window.pathLayer = null;
+  if (window.pathLayer) map1.removeLayer(window.pathLayer);
+  // On a besoin des coordonnées — on les récupère depuis la data chargée
+  api('/api/data').then(d => {
+    const pts = {};
+    pts[0] = d.depot;
+    d.points_collecte.forEach(p => pts[p.id] = p);
+    const coords = chemin.map(id => pts[id]).filter(p => p && p.lat).map(p => [p.lat, p.lon]);
+    if (coords.length > 1) {
+      window.pathLayer = L.polyline(coords, {color:'#00d4ff', weight:4, dashArray:'8 4'}).addTo(map1);
+    }
+  });
+}
+
+async function initMap() {
+  map1 = L.map('map1').setView([30.428, -9.598], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map1);
+  const data = await api('/api/data');
+
+  const depIcon = L.divIcon({html:`<div style="background:#f59e0b;width:18px;height:18px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5)"></div>`,iconSize:[18,18],iconAnchor:[9,9],className:''});
+  if (data.depot.lat) L.marker([data.depot.lat,data.depot.lon],{icon:depIcon}).addTo(map1).bindPopup(`<b>🏭 ${data.depot.nom}</b>`);
+
+  data.points_collecte.forEach(p => {
+    if (!p.lat) return;
+    const icon = L.divIcon({html:`<div style="background:#3b82f6;width:12px;height:12px;border-radius:50%;border:2px solid #fff;cursor:pointer"></div>`,iconSize:[12,12],iconAnchor:[6,6],className:''});
+    L.marker([p.lat,p.lon],{icon}).addTo(map1).bindPopup(`<b>${p.nom}</b><br>Demande: ${p.demande} kg`);
+    // Populate selects
+    document.getElementById('sel-depart').innerHTML += `<option value="${p.id}">${p.id} — ${p.nom}</option>`;
+    document.getElementById('sel-arrivee').innerHTML += `<option value="${p.id}">${p.id} — ${p.nom}</option>`;
+  });
+  // Draw all edges lightly
+  data.points_collecte.forEach((p1,i) => {
+    if (!p1.lat) return;
+    data.points_collecte.slice(i+1).forEach(p2 => {
+      if (!p2.lat) return;
+      L.polyline([[p1.lat,p1.lon],[p2.lat,p2.lon]],{color:'#2a3f5f',weight:1,opacity:.5}).addTo(map1);
+    });
+  });
+  await calculer();
+}
+
+document.addEventListener('DOMContentLoaded', initMap);
+</script>
+{% endblock %}

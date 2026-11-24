@@ -1,0 +1,20 @@
+{
+  "simulation": {
+    "duree_jours": 3,
+    "pas_temps_minutes": 30,
+    "heure_debut": "06:00",
+    "heure_fin": "20:00",
+    "generer_evenements": true
+  },
+  "objectifs": [
+    {"nom": "cout", "type": "minimiser", "poids": 0.3},
+    {"nom": "co2", "type": "minimiser", "poids": 0.3},
+    {"nom": "satisfaction", "type": "maximiser", "poids": 0.2},
+    {"nom": "equite", "type": "maximiser", "poids": 0.2}
+  ],
+  "evenements_aleatoires": [
+    {"type": "panne_camion", "probabilite": 0.05, "duree_moyenne": 120},
+    {"type": "trafic_intense", "probabilite": 0.15, "impact": {"vitesse_reduite": 0.5}},
+    {"type": "demande_speciale", "probabilite": 0.1}
+  ]
+}

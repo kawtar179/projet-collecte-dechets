@@ -1,0 +1,496 @@
+{% extends "base.html" %}
+{% block title %}Tests de Performance — VillePropre{% endblock %}
+
+{% block extra_head %}
+<style>
+.test-btn {
+  cursor:pointer; border:2px solid var(--border); border-radius:12px;
+  padding:18px; background:var(--bg2); transition:all .25s; text-align:center;
+}
+.test-btn:hover { border-color:var(--accent); background:var(--bg3); transform:translateY(-2px); }
+.test-btn.active { border-color:var(--accent); background:rgba(0,212,255,.08); }
+.test-btn .big-num { font-size:32px; font-weight:900; font-family:var(--mono); }
+
+.niveau-card { background:var(--bg2); border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:14px; transition:border-color .3s; }
+.niveau-card.running { border-color:var(--accent); }
+.niveau-card.done    { border-color:var(--green); }
+.niveau-card.error   { border-color:var(--red); }
+.niveau-card-header  { padding:12px 18px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+.niveau-card-body    { padding:16px 18px; }
+
+.step-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(90px,1fr)); gap:8px; }
+.step-kpi  { background:var(--bg3); border-radius:8px; padding:8px 10px; text-align:center; }
+.step-kpi .val { font-size:17px; font-weight:700; font-family:var(--mono); }
+.step-kpi .lbl { font-size:11px; color:var(--muted); margin-top:2px; }
+
+.map-small { height:260px; border-radius:8px; overflow:hidden; border:1px solid var(--border); margin-top:12px; }
+.map-medium { height:320px; border-radius:8px; overflow:hidden; border:1px solid var(--border); margin-top:12px; }
+
+@keyframes spin { to { transform:rotate(360deg); } }
+.spin { display:inline-block; animation:spin .7s linear infinite; }
+.pulse { animation:pulse 1.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="topbar">
+  <div>
+    <div class="topbar-title">🧪 Tests de Performance</div>
+    <div class="topbar-sub">Dcheira El Jihadia — Sélectionnez un test, les 5 niveaux s'exécutent</div>
+  </div>
+</div>
+
+<div class="content">
+
+  <!-- ── Sélection du test ── -->
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-header"><div class="card-title">📋 Choisir un scénario de test</div></div>
+    <div class="card-body">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+
+        <div class="test-btn" id="tbtn-1" onclick="selectionnerTest(1)">
+          <div class="big-num" style="color:#10b981;">T1</div>
+          <div style="font-size:15px;font-weight:700;margin:6px 0;">5 camions · 50 points</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">~13 tonnes · ~10 secondes</div>
+          <span class="badge badge-green" id="tbtn-status1">En attente</span>
+        </div>
+
+        <div class="test-btn" id="tbtn-2" onclick="selectionnerTest(2)">
+          <div class="big-num" style="color:#f59e0b;">T2</div>
+          <div style="font-size:15px;font-weight:700;margin:6px 0;">10 camions · 100 points</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">~25 tonnes · ~15 secondes</div>
+          <span class="badge badge-orange" id="tbtn-status2">En attente</span>
+        </div>
+
+        <div class="test-btn" id="tbtn-3" onclick="selectionnerTest(3)">
+          <div class="big-num" style="color:#ef4444;">T3</div>
+          <div style="font-size:15px;font-weight:700;margin:6px 0;">20 camions · 500 points</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">~137 tonnes · ~4 minutes</div>
+          <span class="badge badge-red" id="tbtn-status3">En attente</span>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Zone résultats ── -->
+  <div id="zone-resultats" style="display:none;">
+
+    <!-- En-tête avec KPIs globaux -->
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-body">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px;">
+          <div>
+            <div style="font-size:19px;font-weight:700;" id="test-titre">—</div>
+            <div style="font-size:12px;color:var(--muted);">Quartier Dcheira El Jihadia · Agadir</div>
+          </div>
+          <div id="global-kpis" style="display:flex;gap:10px;flex-wrap:wrap;"></div>
+        </div>
+        <!-- Barre de progression globale -->
+        <div style="font-size:12px;color:var(--muted);margin-bottom:5px;" id="prog-label">Sélectionnez un test...</div>
+        <div class="progress-bar" style="height:10px;">
+          <div class="progress-fill" id="prog-bar" style="width:0%;transition:width .5s;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Grille 2 colonnes : N1+N2+N3 | N4+N5 ── -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">
+
+      <!-- Colonne gauche -->
+      <div>
+
+        <!-- N1 -->
+        <div class="niveau-card" id="card-n1">
+          <div class="niveau-card-header">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="niveau-pill n1">N1</span>
+              <span style="font-size:14px;font-weight:600;">🔗 Graphe Routier (Dijkstra)</span>
+            </div>
+            <span class="badge badge-blue" id="status-n1">En attente</span>
+          </div>
+          <div class="niveau-card-body">
+            <div id="content-n1" style="color:var(--muted);font-size:13px;">En attente du lancement...</div>
+            <div id="map-n1" class="map-small" style="display:none;"></div>
+          </div>
+        </div>
+
+        <!-- N2 -->
+        <div class="niveau-card" id="card-n2">
+          <div class="niveau-card-header">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="niveau-pill n2">N2</span>
+              <span style="font-size:14px;font-weight:600;">🚛 Affectation Bipartie</span>
+            </div>
+            <span class="badge badge-blue" id="status-n2">En attente</span>
+          </div>
+          <div class="niveau-card-body">
+            <div id="content-n2" style="color:var(--muted);font-size:13px;">En attente de N1...</div>
+          </div>
+        </div>
+
+        <!-- N3 -->
+        <div class="niveau-card" id="card-n3">
+          <div class="niveau-card-header">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="niveau-pill n3">N3</span>
+              <span style="font-size:14px;font-weight:600;">🕐 Planification Horaire</span>
+            </div>
+            <span class="badge badge-blue" id="status-n3">En attente</span>
+          </div>
+          <div class="niveau-card-body">
+            <div id="content-n3" style="color:var(--muted);font-size:13px;">En attente de N2...</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Colonne droite -->
+      <div>
+
+        <!-- N4 (plus grand, avec carte) -->
+        <div class="niveau-card" id="card-n4">
+          <div class="niveau-card-header">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="niveau-pill n4">N4</span>
+              <span style="font-size:14px;font-weight:600;">🛣️ Tournées VRP (2-opt + Tabou)</span>
+            </div>
+            <span class="badge badge-blue" id="status-n4">En attente</span>
+          </div>
+          <div class="niveau-card-body">
+            <div id="content-n4" style="color:var(--muted);font-size:13px;">En attente de N3...</div>
+            <div id="map-n4" class="map-medium" style="display:none;"></div>
+            <div id="legende-n4" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;"></div>
+          </div>
+        </div>
+
+        <!-- N5 -->
+        <div class="niveau-card" id="card-n5">
+          <div class="niveau-card-header">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="niveau-pill n5">N5</span>
+              <span style="font-size:14px;font-weight:600;">📡 Simulation IoT Multi-objectif</span>
+            </div>
+            <span class="badge badge-blue" id="status-n5">En attente</span>
+          </div>
+          <div class="niveau-card-body">
+            <div id="content-n5" style="color:var(--muted);font-size:13px;">En attente de N4...</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Tableau kg/km par camion -->
+    <div class="card" id="card-camions" style="display:none;margin-top:16px;">
+      <div class="card-header"><div class="card-title">⭐ Kg/km par camion — Résultats N4</div></div>
+      <div class="card-body" style="padding:0;">
+        <table class="table">
+          <thead><tr><th>Camion</th><th>Distance (km)</th><th>Poids (kg)</th><th>⭐ Kg/km</th><th>% Capacité</th><th>Efficacité</th></tr></thead>
+          <tbody id="tbody-camions"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let mapN1 = null, mapN4 = null;
+
+async function selectionnerTest(id) {
+  // Boutons
+  [1,2,3].forEach(i => {
+    document.getElementById('tbtn-'+i).classList.toggle('active', i===id);
+  });
+
+  // Reset UI
+  document.getElementById('zone-resultats').style.display = 'block';
+  document.getElementById('test-titre').textContent = {1:'Test 1 — 5 camions / 50 points',2:'Test 2 — 10 camions / 100 points',3:'Test 3 — 20 camions / 500 points'}[id];
+  document.getElementById('global-kpis').innerHTML = '';
+  document.getElementById('card-camions').style.display = 'none';
+  setProgress(0, 'Démarrage...');
+
+  ['n1','n2','n3','n4','n5'].forEach(n => {
+    setStatus(n, 'wait');
+    document.getElementById('content-'+n).innerHTML = '<span style="color:var(--muted);">En attente...</span>';
+  });
+  document.getElementById('legende-n4').innerHTML = '';
+  ['map-n1','map-n4'].forEach(id => {
+    const el = document.getElementById(id);
+    el.style.display = 'none';
+  });
+
+  document.getElementById('zone-resultats').scrollIntoView({behavior:'smooth'});
+
+  // ── Exécuter les niveaux un par un ──
+  try {
+    // N1
+    setStatus('n1','run');
+    setProgress(8, 'N1 — Construction du graphe routier (Dijkstra)...');
+    const r1 = await api(`/api/test/${id}/niveau1`, 'POST');
+    if (!r1.success) throw new Error('N1: ' + r1.error);
+    afficherN1(r1);
+    setStatus('n1','done');
+    setProgress(20, 'N1 terminé ✓ — N2 en cours...');
+
+    // N2
+    setStatus('n2','run');
+    const r2 = await api(`/api/test/${id}/niveau2`, 'POST');
+    if (!r2.success) throw new Error('N2: ' + r2.error);
+    afficherN2(r2);
+    setStatus('n2','done');
+    setProgress(38, 'N2 terminé ✓ — N3 en cours...');
+
+    // N3
+    setStatus('n3','run');
+    const r3 = await api(`/api/test/${id}/niveau3`, 'POST');
+    if (!r3.success) throw new Error('N3: ' + r3.error);
+    afficherN3(r3);
+    setStatus('n3','done');
+    setProgress(52, 'N3 terminé ✓ — N4 en cours (2-opt + Tabou)...');
+
+    // N4 (le plus long)
+    setStatus('n4','run');
+    const r4 = await api(`/api/test/${id}/niveau4`, 'POST');
+    if (!r4.success) throw new Error('N4: ' + r4.error);
+    afficherN4(r4, r1);
+    setStatus('n4','done');
+    setProgress(82, 'N4 terminé ✓ — N5 en cours (IoT)...');
+
+    // N5
+    setStatus('n5','run');
+    const r5 = await api(`/api/test/${id}/niveau5`, 'POST');
+    if (!r5.success) throw new Error('N5: ' + r5.error);
+    afficherN5(r5);
+    setStatus('n5','done');
+    setProgress(100, '✅ Les 5 niveaux terminés avec succès !');
+
+    // KPIs globaux
+    afficherKPIsGlobaux(r1, r4, r5);
+    document.getElementById('tbtn-status'+id).textContent = '✓ Terminé';
+
+    showToast(`Test ${id} complet — ${r4.moy_kg_par_km} kg/km moyen · ${r4.amelioration}% amélioration`, 'success');
+
+  } catch(e) {
+    setProgress(0, '✗ Erreur : ' + e.message);
+    showToast(e.message, 'error');
+    console.error(e);
+  }
+}
+
+// ── Affichage N1 ──
+function afficherN1(d) {
+  document.getElementById('content-n1').innerHTML = `
+    <div class="step-grid">
+      <div class="step-kpi"><div class="val" style="color:var(--accent)">${d.nb_sommets}</div><div class="lbl">Sommets</div></div>
+      <div class="step-kpi"><div class="val">${d.nb_aretes}</div><div class="lbl">Arêtes</div></div>
+      <div class="step-kpi"><div class="val" style="color:var(--green)">${d.connexe?'Oui':'Non'}</div><div class="lbl">Connexe</div></div>
+      <div class="step-kpi"><div class="val">${d.temps_ms} ms</div><div class="lbl">Temps</div></div>
+    </div>`;
+
+  // Carte N1
+  const mapEl = document.getElementById('map-n1');
+  mapEl.style.display = 'block';
+  setTimeout(() => {
+    if (!mapN1) {
+      mapN1 = L.map('map-n1').setView([d.depot.lat||30.3572, d.depot.lon||-9.5414], 13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapN1);
+    } else {
+      mapN1.eachLayer(l => { if (!(l instanceof L.TileLayer)) mapN1.removeLayer(l); });
+    }
+    const depIcon = L.divIcon({html:`<div style="background:#f59e0b;width:16px;height:16px;border-radius:4px;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.5)"></div>`,iconSize:[16,16],iconAnchor:[8,8],className:''});
+    if (d.depot.lat) L.marker([d.depot.lat,d.depot.lon],{icon:depIcon}).addTo(mapN1).bindPopup(`<b>🏭 ${d.depot.nom}</b>`);
+    d.points.forEach(p => {
+      const ic = L.divIcon({html:`<div style="background:#3b82f6;width:8px;height:8px;border-radius:50%;border:2px solid #fff;"></div>`,iconSize:[8,8],iconAnchor:[4,4],className:''});
+      L.marker([p.lat,p.lon],{icon:ic}).addTo(mapN1).bindPopup(`<b>${p.nom}</b><br>${p.demande} kg`);
+    });
+    mapN1.invalidateSize();
+  }, 200);
+}
+
+// ── Affichage N2 ──
+function afficherN2(d) {
+  const camionsHtml = d.affectation.map(a => `
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">
+      <span style="width:10px;height:10px;border-radius:50%;background:${a.camion_couleur};display:inline-block;flex-shrink:0;"></span>
+      <span style="font-size:13px;font-weight:500;flex:1;">${a.camion_nom}</span>
+      <span class="badge badge-purple">${a.zones.length} zone(s)</span>
+      <span class="font-mono" style="font-size:12px;color:var(--muted);">${a.charge.toLocaleString()} kg</span>
+    </div>`).join('');
+
+  document.getElementById('content-n2').innerHTML = `
+    <div class="step-grid" style="margin-bottom:12px;">
+      <div class="step-kpi"><div class="val" style="color:#a78bfa">${d.nb_camions}</div><div class="lbl">Camions</div></div>
+      <div class="step-kpi"><div class="val">${d.nb_zones}</div><div class="lbl">Zones</div></div>
+      <div class="step-kpi"><div class="val">${d.nb_points}</div><div class="lbl">Points</div></div>
+      <div class="step-kpi"><div class="val" style="color:${d.valide?'var(--green)':'var(--red)'}">${d.valide?'✓':'✗'}</div><div class="lbl">Valide</div></div>
+      <div class="step-kpi"><div class="val">${d.temps_ms} ms</div><div class="lbl">Temps</div></div>
+    </div>
+    <div style="max-height:160px;overflow-y:auto;">${camionsHtml}</div>`;
+}
+
+// ── Affichage N3 ──
+function afficherN3(d) {
+  const ind = d.indicateurs;
+  const planHtml = Object.entries(d.plan_resume).map(([j,nb]) =>
+    `<span class="badge badge-blue">${j}: ${nb} tâche(s)</span>`
+  ).join(' ');
+
+  document.getElementById('content-n3').innerHTML = `
+    <div class="step-grid" style="margin-bottom:12px;">
+      <div class="step-kpi"><div class="val" style="color:var(--green)">${ind.taux_occupation?.toFixed(1)||'—'}%</div><div class="lbl">Occupation</div></div>
+      <div class="step-kpi"><div class="val">${ind.respect_horaires?.toFixed(1)||'—'}%</div><div class="lbl">Horaires</div></div>
+      <div class="step-kpi"><div class="val">${d.total_taches}</div><div class="lbl">Tâches</div></div>
+      <div class="step-kpi"><div class="val">${d.jours_actifs}</div><div class="lbl">Jours actifs</div></div>
+      <div class="step-kpi"><div class="val">${d.temps_ms} ms</div><div class="lbl">Temps</div></div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;">${planHtml}</div>`;
+}
+
+// ── Affichage N4 + carte ──
+function afficherN4(d, r1) {
+  document.getElementById('content-n4').innerHTML = `
+    <div class="step-grid" style="margin-bottom:12px;">
+      <div class="step-kpi"><div class="val" style="color:var(--orange)">${d.dist_final_km} km</div><div class="lbl">Distance</div></div>
+      <div class="step-kpi"><div class="val" style="color:var(--orange)">${d.moy_kg_par_km}</div><div class="lbl">⭐ Kg/km</div></div>
+      <div class="step-kpi"><div class="val" style="color:var(--green)">-${d.amelioration}%</div><div class="lbl">Amélioration</div></div>
+      <div class="step-kpi"><div class="val">${d.iterations}</div><div class="lbl">Iter. Tabou</div></div>
+      <div class="step-kpi"><div class="val">${(d.temps_2opt_ms/1000).toFixed(1)}s</div><div class="lbl">2-opt</div></div>
+      <div class="step-kpi"><div class="val">${(d.temps_tabou_ms/1000).toFixed(1)}s</div><div class="lbl">Tabou</div></div>
+    </div>`;
+
+  // Carte N4
+  const mapEl = document.getElementById('map-n4');
+  mapEl.style.display = 'block';
+  setTimeout(() => {
+    const centre = r1 && r1.depot.lat ? [r1.depot.lat, r1.depot.lon] : [30.3572, -9.5414];
+    if (!mapN4) {
+      mapN4 = L.map('map-n4').setView(centre, 13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapN4);
+    } else {
+      mapN4.eachLayer(l => { if (!(l instanceof L.TileLayer)) mapN4.removeLayer(l); });
+    }
+
+    // Dépôt
+    if (r1 && r1.depot.lat) {
+      const depIcon = L.divIcon({html:`<div style="background:#f59e0b;width:18px;height:18px;border-radius:4px;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-size:10px;">🏭</div>`,iconSize:[18,18],iconAnchor:[9,9],className:''});
+      L.marker([r1.depot.lat, r1.depot.lon], {icon:depIcon}).addTo(mapN4).bindPopup(`<b>🏭 ${r1.depot.nom}</b>`);
+    }
+
+    // Tournées
+    const legende = document.getElementById('legende-n4');
+    legende.innerHTML = '';
+    d.tournees.forEach(t => {
+      if (!t.coords || t.coords.length < 2) return;
+      const coords = t.coords.map(c => [c.lat, c.lon]);
+      L.polyline(coords, {color:t.couleur, weight:3, opacity:.85}).addTo(mapN4);
+      t.coords.forEach(c => {
+        const ic = L.divIcon({
+          html:`<div style="background:${c.is_depot?'#f59e0b':t.couleur};width:${c.is_depot?12:8}px;height:${c.is_depot?12:8}px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,
+          iconSize:[8,8],iconAnchor:[4,4],className:''
+        });
+        L.marker([c.lat,c.lon],{icon:ic}).addTo(mapN4).bindPopup(`<b>${c.nom||'Dépôt'}</b><br>${t.nom_camion}`);
+      });
+      legende.innerHTML += `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;background:var(--bg3);padding:3px 8px;border-radius:99px;">
+        <span style="width:8px;height:8px;border-radius:50%;background:${t.couleur};display:inline-block;"></span>${t.nom_camion}
+      </span>`;
+    });
+    mapN4.invalidateSize();
+  }, 200);
+
+  // Tableau camions
+  afficherTableauCamions(d);
+}
+
+// ── Affichage N5 ──
+function afficherN5(d) {
+  const s = d.scores;
+  const cap = d.capteurs_resume;
+  document.getElementById('content-n5').innerHTML = `
+    <div class="step-grid" style="margin-bottom:12px;">
+      <div class="step-kpi"><div class="val" style="color:var(--green)">${d.co2_total} kg</div><div class="lbl">CO₂</div></div>
+      <div class="step-kpi"><div class="val" style="color:var(--accent)">${s.satisfaction}%</div><div class="lbl">Satisfaction</div></div>
+      <div class="step-kpi"><div class="val" style="color:var(--orange)">${s.cout} DH</div><div class="lbl">Coût</div></div>
+      <div class="step-kpi"><div class="val">${s.equite}%</div><div class="lbl">Équité</div></div>
+      <div class="step-kpi"><div class="val" style="color:${cap.urgents>0?'var(--red)':'var(--green)'}">${cap.urgents}</div><div class="lbl">Urgents</div></div>
+      <div class="step-kpi"><div class="val">${(d.temps_ms/1000).toFixed(1)}s</div><div class="lbl">Temps</div></div>
+    </div>
+    <div style="font-size:12px;color:var(--muted);">
+      ${cap.total} capteurs IoT · Remplissage moyen : ${cap.moy_remplissage}% · ${d.nb_evenements} événements simulés
+    </div>`;
+}
+
+// ── KPIs globaux ──
+function afficherKPIsGlobaux(r1, r4, r5) {
+  document.getElementById('global-kpis').innerHTML = `
+    <div class="stat-card" style="padding:10px 14px;text-align:center;min-width:110px;">
+      <div class="stat-value font-mono" style="font-size:19px;color:var(--accent)">${r1.nb_sommets}</div>
+      <div class="stat-label">Sommets</div>
+    </div>
+    <div class="stat-card" style="padding:10px 14px;text-align:center;min-width:110px;">
+      <div class="stat-value font-mono" style="font-size:19px;">${r4.dist_final_km} km</div>
+      <div class="stat-label">Distance</div>
+    </div>
+    <div class="stat-card" style="padding:10px 14px;text-align:center;min-width:110px;">
+      <div class="stat-value font-mono" style="font-size:19px;color:var(--orange)">${r4.moy_kg_par_km} kg/km</div>
+      <div class="stat-label">⭐ Kg/km moy.</div>
+    </div>
+    <div class="stat-card" style="padding:10px 14px;text-align:center;min-width:110px;">
+      <div class="stat-value font-mono" style="font-size:19px;color:var(--green)">-${r4.amelioration}%</div>
+      <div class="stat-label">Amélioration</div>
+    </div>
+    <div class="stat-card" style="padding:10px 14px;text-align:center;min-width:110px;">
+      <div class="stat-value font-mono" style="font-size:19px;color:var(--green)">${r5.co2_total} kg</div>
+      <div class="stat-label">CO₂</div>
+    </div>`;
+}
+
+// ── Tableau camions ──
+function afficherTableauCamions(d) {
+  const tbody = document.getElementById('tbody-camions');
+  tbody.innerHTML = '';
+  d.tournees.forEach(t => {
+    const poids = t.charge_finale || 0;
+    const dist  = t.distance_totale || 0;
+    const kgkm  = dist > 0 ? Math.round(poids/dist*10)/10 : 0;
+    const pct   = t.taux_chargement || 0;
+    const barC  = pct>80?'#10b981':pct>40?'#f59e0b':'#ef4444';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${t.couleur};margin-right:6px;"></span>${t.nom_camion}</td>
+      <td class="font-mono">${dist.toFixed(2)}</td>
+      <td class="font-mono">${poids.toLocaleString()}</td>
+      <td class="font-mono" style="color:var(--orange);font-weight:700;">${kgkm}</td>
+      <td><div style="display:flex;align-items:center;gap:8px;"><div class="progress-bar" style="width:80px;"><div class="progress-fill" style="width:${pct}%;background:${barC};"></div></div><span class="font-mono" style="font-size:11px;">${pct}%</span></div></td>
+      <td>${kgkm>200?'<span class="badge badge-green">Excellent</span>':kgkm>100?'<span class="badge badge-blue">Bon</span>':kgkm>50?'<span class="badge badge-orange">Moyen</span>':'<span class="badge badge-red">Faible</span>'}</td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('card-camions').style.display = 'block';
+}
+
+// ── Helpers ──
+function setStatus(n, state) {
+  const el = document.getElementById('status-'+n);
+  const card = document.getElementById('card-'+n);
+  const cfg = {
+    wait:  {txt:'En attente', cls:'badge-blue'},
+    run:   {txt:'<span class="spin">⟳</span> En cours', cls:'badge-blue'},
+    done:  {txt:'✓ Terminé',  cls:'badge-green'},
+    error: {txt:'✗ Erreur',   cls:'badge-red'},
+  };
+  const c = cfg[state]||cfg.wait;
+  el.innerHTML = c.txt;
+  el.className = 'badge ' + c.cls;
+  card.className = 'niveau-card ' + (state==='wait'?'':state);
+}
+
+function setProgress(pct, txt) {
+  document.getElementById('prog-bar').style.width = pct + '%';
+  document.getElementById('prog-label').textContent = txt;
+  const bar = document.getElementById('prog-bar');
+  bar.style.background = pct===100 ? 'var(--green)' : 'var(--accent)';
+}
+</script>
+{% endblock %}

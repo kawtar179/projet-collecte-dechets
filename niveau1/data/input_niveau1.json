@@ -1,0 +1,37 @@
+{
+  "depot": {
+    "id": 0,
+    "lat": 30.4202,
+    "lon": -9.5982,
+    "nom": "Dépôt Central Agadir",
+    "x": 0,
+    "y": 0
+  },
+  "points_collecte": [
+    {"id": 1, "lat": 30.4300, "lon": -9.5900, "nom": "Talborjt", "x": 1.0, "y": 0.9, "demande": 120},
+    {"id": 2, "lat": 30.4150, "lon": -9.6050, "nom": "Hay Mohammadi", "x": -1.5, "y": -0.6, "demande": 200},
+    {"id": 3, "lat": 30.4250, "lon": -9.6100, "nom": "Fonty", "x": -2.0, "y": 0.3, "demande": 150},
+    {"id": 4, "lat": 30.4350, "lon": -9.5850, "nom": "Nouveau Talborjt", "x": 1.5, "y": 1.4, "demande": 180},
+    {"id": 5, "lat": 30.4100, "lon": -9.5950, "nom": "Cité Dakhla", "x": 0.3, "y": -1.1, "demande": 130},
+    {"id": 6, "lat": 30.4180, "lon": -9.5880, "nom": "Anza", "x": 0.9, "y": -0.3, "demande": 160},
+    {"id": 7, "lat": 30.4280, "lon": -9.6020, "nom": "Bensergao", "x": -0.4, "y": 0.8, "demande": 140},
+    {"id": 8, "lat": 30.4050, "lon": -9.6000, "nom": "Leksar", "x": -0.2, "y": -1.7, "demande": 170},
+    {"id": 9, "lat": 30.4320, "lon": -9.5800, "nom": "Les Amicales", "x": 2.0, "y": 1.1, "demande": 190},
+    {"id": 10, "lat": 30.4230, "lon": -9.6150, "nom": "Tiznit Quarter", "x": -2.5, "y": 0.3, "demande": 145}
+  ],
+  "connexions": [
+    {"depart": 0, "arrivee": 1, "distance": null},
+    {"depart": 0, "arrivee": 2, "distance": null},
+    {"depart": 1, "arrivee": 4, "distance": null},
+    {"depart": 1, "arrivee": 6, "distance": null},
+    {"depart": 2, "arrivee": 3, "distance": null},
+    {"depart": 2, "arrivee": 5, "distance": null},
+    {"depart": 3, "arrivee": 7, "distance": null},
+    {"depart": 4, "arrivee": 9, "distance": null},
+    {"depart": 5, "arrivee": 8, "distance": null},
+    {"depart": 6, "arrivee": 7, "distance": null},
+    {"depart": 7, "arrivee": 10, "distance": null},
+    {"depart": 8, "arrivee": 10, "distance": null},
+    {"depart": 9, "arrivee": 6, "distance": null}
+  ]
+}

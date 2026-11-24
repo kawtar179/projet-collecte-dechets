@@ -1,0 +1,421 @@
+{
+  "depot": {
+    "id": 0,
+    "x": 0,
+    "y": 0,
+    "lat": 30.4278,
+    "lon": -9.5981,
+    "nom": "Dépôt Central - Agadir",
+    "adresse": "Route d'Ait Melloul, Agadir"
+  },
+  "points_collecte": [
+    {
+      "id": 1,
+      "lat": 30.4202,
+      "lon": -9.5985,
+      "nom": "Talborjt",
+      "adresse": "Quartier Talborjt",
+      "x": 1,
+      "y": -0.8,
+      "demande": 120
+    },
+    {
+      "id": 2,
+      "lat": 30.415,
+      "lon": -9.6021,
+      "nom": "Hay Mohammadi",
+      "adresse": "Hay Mohammadi",
+      "x": -0.5,
+      "y": -1.5,
+      "demande": 150
+    },
+    {
+      "id": 3,
+      "lat": 30.4318,
+      "lon": -9.587,
+      "nom": "Nouveau Talborjt",
+      "adresse": "Av. Hassan II",
+      "x": 2.4,
+      "y": 0.4,
+      "demande": 100
+    },
+    {
+      "id": 4,
+      "lat": 30.408,
+      "lon": -9.5915,
+      "nom": "Anza",
+      "adresse": "Quartier Anza",
+      "x": 1.7,
+      "y": -2.2,
+      "demande": 200
+    },
+    {
+      "id": 5,
+      "lat": 30.435,
+      "lon": -9.596,
+      "nom": "Centre Ville",
+      "adresse": "Av. Prince Moulay Abdallah",
+      "x": 0.8,
+      "y": 0.8,
+      "demande": 180
+    },
+    {
+      "id": 6,
+      "lat": 30.438,
+      "lon": -9.601,
+      "nom": "Cité Dakhla",
+      "adresse": "Cité Dakhla",
+      "x": -0.2,
+      "y": 1.1,
+      "demande": 130
+    },
+    {
+      "id": 7,
+      "lat": 30.425,
+      "lon": -9.609,
+      "nom": "Tilila",
+      "adresse": "Quartier Tilila",
+      "x": -1.1,
+      "y": -0.3,
+      "demande": 110
+    },
+    {
+      "id": 8,
+      "lat": 30.442,
+      "lon": -9.583,
+      "nom": "Founty",
+      "adresse": "Quartier Founty",
+      "x": 3.1,
+      "y": 1.5,
+      "demande": 90
+    },
+    {
+      "id": 9,
+      "lat": 30.448,
+      "lon": -9.59,
+      "nom": "Bensergao",
+      "adresse": "Bensergao",
+      "x": 2.0,
+      "y": 2.1,
+      "demande": 160
+    }
+  ],
+  "zones": [
+    {
+      "id": 1,
+      "nom": "Zone Nord",
+      "points": [
+        8,
+        9
+      ],
+      "volume_moyen": 250,
+      "centre": {
+        "x": 2.55,
+        "y": 1.8
+      },
+      "centre_lat": 30.445,
+      "centre_lon": -9.5865,
+      "frequence_collecte": "quotidien",
+      "priorite": "haute",
+      "couleur": "#e74c3c",
+      "volume_estime": 250
+    },
+    {
+      "id": 2,
+      "nom": "Zone Centre",
+      "points": [
+        1,
+        5,
+        3
+      ],
+      "volume_moyen": 400,
+      "centre": {
+        "x": 1.4,
+        "y": 0.13
+      },
+      "centre_lat": 30.429,
+      "centre_lon": -9.5938,
+      "frequence_collecte": "quotidien",
+      "priorite": "haute",
+      "couleur": "#3498db",
+      "volume_estime": 400
+    },
+    {
+      "id": 3,
+      "nom": "Zone Ouest",
+      "points": [
+        2,
+        6,
+        7
+      ],
+      "volume_moyen": 390,
+      "centre": {
+        "x": -0.6,
+        "y": 0.1
+      },
+      "centre_lat": 30.426,
+      "centre_lon": -9.604,
+      "frequence_collecte": "quotidien",
+      "priorite": "normale",
+      "couleur": "#2ecc71",
+      "volume_estime": 390
+    },
+    {
+      "id": 4,
+      "nom": "Zone Sud",
+      "points": [
+        4
+      ],
+      "volume_moyen": 340,
+      "centre": {
+        "x": 0.2,
+        "y": -2.1
+      },
+      "centre_lat": 30.409,
+      "centre_lon": -9.6007,
+      "frequence_collecte": "quotidien",
+      "priorite": "normale",
+      "couleur": "#f39c12",
+      "volume_estime": 340
+    }
+  ],
+  "camions": [
+    {
+      "id": 1,
+      "nom": "Camion A1",
+      "capacite": 400,
+      "cout_fixe": 200,
+      "zones_accessibles": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "position_initial": {
+        "x": 0,
+        "y": 0
+      },
+      "couleur": "#e74c3c"
+    },
+    {
+      "id": 2,
+      "nom": "Camion B2",
+      "capacite": 100,
+      "cout_fixe": 180,
+      "zones_accessibles": [
+        2,
+        3,
+        4
+      ],
+      "position_initial": {
+        "x": 0,
+        "y": 0
+      },
+      "couleur": "#3498db"
+    },
+    {
+      "id": 3,
+      "nom": "Camion C3",
+      "capacite": 350,
+      "cout_fixe": 160,
+      "zones_accessibles": [
+        1,
+        2,
+        3
+      ],
+      "position_initial": {
+        "x": 0,
+        "y": 0
+      },
+      "couleur": "#2ecc71"
+    },
+    {
+      "id": 4,
+      "nom": "Camion D4",
+      "capacite": 500,
+      "cout_fixe": 150,
+      "zones_accessibles": [
+        3,
+        4
+      ],
+      "position_initial": {
+        "x": 0,
+        "y": 0
+      },
+      "couleur": "#9b59b6"
+    },
+    {
+      "id": 5,
+      "nom": "Camion E5",
+      "capacite": 300,
+      "cout_fixe": 190,
+      "zones_accessibles": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "position_initial": {
+        "x": 0,
+        "y": 0
+      },
+      "couleur": "#f39c12"
+    }
+  ],
+  "creneaux": [
+    {
+      "id": 1,
+      "debut": "06:00",
+      "fin": "08:00",
+      "jour": "lundi",
+      "niveau_congestion": 1.0
+    },
+    {
+      "id": 2,
+      "debut": "08:00",
+      "fin": "10:00",
+      "jour": "lundi",
+      "niveau_congestion": 1.5
+    },
+    {
+      "id": 3,
+      "debut": "10:00",
+      "fin": "12:00",
+      "jour": "lundi",
+      "niveau_congestion": 1.2
+    },
+    {
+      "id": 4,
+      "debut": "14:00",
+      "fin": "16:00",
+      "jour": "lundi",
+      "niveau_congestion": 1.1
+    },
+    {
+      "id": 5,
+      "debut": "16:00",
+      "fin": "18:00",
+      "jour": "lundi",
+      "niveau_congestion": 1.8
+    },
+    {
+      "id": 6,
+      "debut": "06:00",
+      "fin": "08:00",
+      "jour": "mardi",
+      "niveau_congestion": 1.0
+    },
+    {
+      "id": 7,
+      "debut": "08:00",
+      "fin": "10:00",
+      "jour": "mardi",
+      "niveau_congestion": 1.4
+    },
+    {
+      "id": 8,
+      "debut": "06:00",
+      "fin": "08:00",
+      "jour": "mercredi",
+      "niveau_congestion": 1.0
+    },
+    {
+      "id": 9,
+      "debut": "08:00",
+      "fin": "10:00",
+      "jour": "mercredi",
+      "niveau_congestion": 1.3
+    },
+    {
+      "id": 10,
+      "debut": "14:00",
+      "fin": "16:00",
+      "jour": "mercredi",
+      "niveau_congestion": 1.1
+    },
+    {
+      "id": 11,
+      "debut": "06:00",
+      "fin": "08:00",
+      "jour": "jeudi",
+      "niveau_congestion": 1.0
+    },
+    {
+      "id": 12,
+      "debut": "08:00",
+      "fin": "10:00",
+      "jour": "jeudi",
+      "niveau_congestion": 1.3
+    },
+    {
+      "id": 13,
+      "debut": "14:00",
+      "fin": "16:00",
+      "jour": "jeudi",
+      "niveau_congestion": 1.1
+    },
+    {
+      "id": 14,
+      "debut": "06:00",
+      "fin": "08:00",
+      "jour": "vendredi",
+      "niveau_congestion": 1.0
+    },
+    {
+      "id": 15,
+      "debut": "08:00",
+      "fin": "10:00",
+      "jour": "vendredi",
+      "niveau_congestion": 1.3
+    },
+    {
+      "id": 16,
+      "debut": "14:00",
+      "fin": "16:00",
+      "jour": "vendredi",
+      "niveau_congestion": 1.1
+    },
+    {
+      "id": 17,
+      "debut": "06:00",
+      "fin": "08:00",
+      "jour": "samedi",
+      "niveau_congestion": 1.0
+    },
+    {
+      "id": 18,
+      "debut": "08:00",
+      "fin": "10:00",
+      "jour": "samedi",
+      "niveau_congestion": 1.3
+    },
+    {
+      "id": 19,
+      "debut": "14:00",
+      "fin": "16:00",
+      "jour": "samedi",
+      "niveau_congestion": 1.1
+    },
+    {
+      "id": 20,
+      "debut": "06:00",
+      "fin": "08:00",
+      "jour": "dimanche",
+      "niveau_congestion": 1.0
+    },
+    {
+      "id": 21,
+      "debut": "08:00",
+      "fin": "10:00",
+      "jour": "dimanche",
+      "niveau_congestion": 1.3
+    },
+    {
+      "id": 22,
+      "debut": "14:00",
+      "fin": "16:00",
+      "jour": "dimanche",
+      "niveau_congestion": 1.1
+    }
+  ]
+}

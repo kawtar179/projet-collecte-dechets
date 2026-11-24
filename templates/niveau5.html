@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% block title %}Niveau 5 — Système IoT Dynamique{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <div class="topbar-title">📡 Niveau 5 — Système IoT Dynamique</div>
+    <div class="topbar-sub">Capteurs IoT · Simulation temps réel · Optimisation multi-objectif · Dashboard</div>
+  </div>
+  <div class="topbar-actions">
+    <span class="badge badge-red niveau-pill n5">N5</span>
+    <button class="btn btn-secondary" id="btn-live" onclick="toggleLive()">🔴 Démarrer Live</button>
+    <button class="btn btn-primary" onclick="simuler()">▶ Simuler Journée</button>
+  </div>
+</div>
+<div class="content">
+  <!-- Stats temps réel -->
+  <div class="grid grid-4 mb-4">
+    <div class="stat-card">
+      <div class="stat-value font-mono" id="kpi-co2" style="color:var(--green)">—</div>
+      <div class="stat-label">🌿 CO₂ Total (kg)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value font-mono" id="kpi-cout">—</div>
+      <div class="stat-label">💰 Coût (DH)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value font-mono" id="kpi-sat" style="color:var(--accent)">—</div>
+      <div class="stat-label">😊 Satisfaction (%)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value font-mono" id="kpi-urgent" style="color:var(--red)">0</div>
+      <div class="stat-label">🚨 Points Urgents</div>
+    </div>
+  </div>
+
+  <div class="grid grid-2 mb-4">
+    <!-- Capteurs IoT -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">📊 Capteurs IoT — Niveaux de Remplissage</div>
+        <span class="badge badge-blue" id="heure-badge">08:00</span>
+      </div>
+      <div class="card-body" style="max-height:380px;overflow-y:auto" id="capteurs-container">
+        <div style="text-align:center;color:var(--muted);padding:30px">Simulez pour voir les capteurs</div>
+      </div>
+    </div>
+
+    <!-- Événements -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">⚡ Journal des Événements</div>
+        <button class="btn btn-sm btn-secondary" onclick="clearEvents()">🗑</button>
+      </div>
+      <div class="card-body" style="max-height:380px;overflow-y:auto" id="events-log">
+        <div style="text-align:center;color:var(--muted);padding:30px">Aucun événement</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Objectifs multi-critères -->
+  <div class="card mb-4" id="objectifs-card" style="display:none">
+    <div class="card-header">
+      <div class="card-title">🎯 Scores Multi-Objectifs (Front de Pareto)</div>
+    </div>
+    <div class="card-body">
+      <div class="grid grid-4" id="scores-grid"></div>
+    </div>
+  </div>
+
+  <!-- Timeline simulation -->
+  <div class="card" id="timeline-card" style="display:none">
+    <div class="card-header">
+      <div class="card-title">📈 Timeline de Simulation</div>
+    </div>
+    <div class="card-body">
+      <div id="timeline-container" style="overflow-x:auto"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let liveInterval = null, liveRunning = false, eventLog = [];
+
+async function simuler() {
+  const btn = document.querySelector('.btn-primary');
+  btn.innerHTML = '<span class="spinner"></span> Simulation...';
+  const data = await api('/api/niveau5/simuler', 'POST');
+  btn.innerHTML = '▶ Simuler Journée';
+  if (!data.success) { showToast(data.error,'error'); return; }
+
+  // KPIs
+  document.getElementById('kpi-co2').textContent = data.co2_total.toFixed(1);
+  document.getElementById('kpi-cout').textContent = data.scores_objectifs.cout.toFixed(0);
+  document.getElementById('kpi-sat').textContent = data.scores_objectifs.satisfaction.toFixed(1) + '%';
+  document.getElementById('kpi-urgent').textContent = data.points_urgents.length;
+
+  // Capteurs
+  renderCapteurs(data.capteurs_final);
+
+  // Événements
+  data.evenements.forEach(e => addEvent(e));
+
+  // Scores objectifs
+  const scores = data.scores_objectifs;
+  document.getElementById('objectifs-card').style.display = 'block';
+  document.getElementById('scores-grid').innerHTML = [
+    {nom:'Coût', val:scores.cout, unit:'DH', type:'min', color:'var(--orange)'},
+    {nom:'CO₂', val:scores.co2, unit:'kg', type:'min', color:'var(--green)'},
+    {nom:'Satisfaction', val:scores.satisfaction, unit:'%', type:'max', color:'var(--accent)'},
+    {nom:'Équité', val:scores.equite, unit:'%', type:'max', color:'#a78bfa'}
+  ].map(s => `
+    <div class="stat-card">
+      <div style="font-size:10px;color:${s.color};font-weight:600;letter-spacing:1px;margin-bottom:4px">${s.type==='min'?'↓ MIN':'↑ MAX'}</div>
+      <div class="stat-value font-mono" style="color:${s.color}">${s.val.toFixed(1)}</div>
+      <div class="stat-label">${s.nom} (${s.unit})</div>
+    </div>`).join('');
+
+  // Timeline
+  renderTimeline(data.simulation);
+  showToast(`Simulation terminée! ${data.points_urgents.length} points urgents détectés`);
+}
+
+function renderCapteurs(capteurs) {
+  const div = document.getElementById('capteurs-container');
+  div.innerHTML = Object.values(capteurs).map(c => {
+    const pct = c.taux;
+    const color = pct>=90?'var(--red)':pct>=70?'var(--orange)':'var(--green)';
+    return `
+    <div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-size:13px;font-weight:500">📍 Point ${c.point_id}</span>
+        <span class="font-mono" style="font-size:13px;color:${color}">${c.taux.toFixed(1)}%</span>
+        ${c.urgence?'<span class="badge badge-red">🚨 URGENT</span>':''}
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" style="width:${pct}%;background:${color}"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function addEvent(ev) {
+  eventLog.unshift(ev);
+  if (eventLog.length > 50) eventLog.pop();
+  const div = document.getElementById('events-log');
+  const icons = {panne_camion:'🔧',trafic_intense:'🚦',demande_speciale:'📦'};
+  const colors = {panne_camion:'badge-red',trafic_intense:'badge-orange',demande_speciale:'badge-purple'};
+  div.innerHTML = eventLog.map(e => `
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:16px">${icons[e.type]||'ℹ️'}</span>
+      <div>
+        <div style="font-size:12px;font-weight:600">${e.type.replace(/_/g,' ')}</div>
+        <div style="font-size:11px;color:var(--muted)">${e.heure||''} · ${JSON.stringify(e.details||{}).replace(/[{}"]/g,'')}</div>
+      </div>
+    </div>`).join('') || '<div style="color:var(--muted);font-size:12px">Aucun événement</div>';
+}
+
+function clearEvents() { eventLog=[]; document.getElementById('events-log').innerHTML='<div style="color:var(--muted);font-size:12px;padding:10px">Journal effacé</div>'; }
+
+function renderTimeline(sim) {
+  document.getElementById('timeline-card').style.display = 'block';
+  let html = '<div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px">';
+  sim.forEach((s, i) => {
+    const urgents = s.points_urgents?.length||0;
+    const bg = urgents>2?'var(--red)':urgents>0?'var(--orange)':'var(--green)';
+    html += `
+      <div style="min-width:90px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;flex-shrink:0">
+        <div class="font-mono" style="font-size:11px;color:var(--muted)">T+${i+1}</div>
+        <div style="font-size:12px;font-weight:600;margin:4px 0">${s.heure}</div>
+        <div style="width:8px;height:8px;border-radius:50%;background:${bg};margin:0 auto 4px"></div>
+        <div style="font-size:10px;color:var(--muted)">${urgents} urgents</div>
+        ${s.evenement?`<div style="font-size:9px;color:var(--orange);margin-top:2px">⚡ Event</div>`:''}
+      </div>`;
+  });
+  html += '</div>';
+  document.getElementById('timeline-container').innerHTML = html;
+}
+
+async function toggleLive() {
+  if (liveRunning) {
+    clearInterval(liveInterval);
+    liveRunning = false;
+    document.getElementById('btn-live').innerHTML = '🔴 Démarrer Live';
+    document.getElementById('btn-live').className = 'btn btn-secondary';
+  } else {
+    liveRunning = true;
+    document.getElementById('btn-live').innerHTML = '⏹ Arrêter Live';
+    document.getElementById('btn-live').className = 'btn btn-danger';
+    liveInterval = setInterval(async () => {
+      const data = await api('/api/niveau5/pas_temps', 'POST');
+      if (!data.success) return;
+      const e = data.etat;
+      document.getElementById('heure-badge').textContent = e.heure;
+      document.getElementById('kpi-urgent').textContent = e.points_urgents?.length||0;
+      renderCapteurs(e.capteurs);
+      if (e.evenement) addEvent({...e.evenement, heure:e.heure});
+    }, 3000);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {});
+</script>
+{% endblock %}

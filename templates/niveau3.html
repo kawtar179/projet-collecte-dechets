@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Niveau 3 — Planification Temporelle{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <div class="topbar-title">🕐 Niveau 3 — Planification Temporelle</div>
+    <div class="topbar-sub">Graphe triparti Camion ↔ Zone ↔ Créneau · Planning hebdomadaire</div>
+  </div>
+  <div class="topbar-actions">
+    <span class="badge badge-green niveau-pill n3">N3</span>
+    <button class="btn btn-primary" onclick="planifier()">▶ Générer Planning</button>
+  </div>
+</div>
+<div class="content">
+  <div class="grid grid-4 mb-4" id="ind-row" style="display:none">
+    <div class="stat-card">
+      <div class="stat-value font-mono" id="ind-occup" style="color:var(--green)">—</div>
+      <div class="stat-label">Taux d'occupation (%)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value font-mono" id="ind-horaires">—</div>
+      <div class="stat-label">Respect horaires (%)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value font-mono" id="ind-cong" style="color:var(--orange)">—</div>
+      <div class="stat-label">Congestion moy.</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value font-mono" id="ind-retard">—</div>
+      <div class="stat-label">Retard moyen (min)</div>
+    </div>
+  </div>
+  <div id="planning-container">
+    <div class="card">
+      <div class="card-body" style="text-align:center;padding:40px;color:var(--muted)">
+        <div style="font-size:40px;margin-bottom:12px">🕐</div>
+        <div>Cliquez sur <b>Générer Planning</b> pour créer le planning hebdomadaire</div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+async function planifier() {
+  const btn = document.querySelector('.btn-primary');
+  btn.innerHTML = '<span class="spinner"></span> Génération...';
+  const data = await api('/api/niveau3/planifier', 'POST');
+  btn.innerHTML = '▶ Générer Planning';
+  if (!data.success) { showToast(data.error, 'error'); return; }
+  const ind = data.indicateurs;
+  document.getElementById('ind-row').style.display = 'grid';
+  document.getElementById('ind-occup').textContent = ind.taux_occupation.toFixed(1) + '%';
+  document.getElementById('ind-horaires').textContent = ind.respect_horaires.toFixed(1) + '%';
+  document.getElementById('ind-cong').textContent = ind.congestion_moyenne.toFixed(2);
+  document.getElementById('ind-retard').textContent = ind.retard_moyen.toFixed(1) + ' min';
+
+  let html = '';
+  const jours = Object.keys(data.plan);
+  jours.forEach(jour => {
+    const entrees = data.plan[jour];
+    if (!entrees.length) return;
+    html += `<div class="card mb-4">
+      <div class="card-header">
+        <div class="card-title">📅 ${jour.charAt(0).toUpperCase()+jour.slice(1)}</div>
+        <span class="badge badge-blue">${entrees.length} tâche(s)</span>
+      </div>
+      <div class="card-body" style="padding:0">
+      <table class="table">
+        <thead><tr><th>Camion</th><th>Zone</th><th>Créneau</th><th>Durée</th><th>Volume / Capacité</th><th>Voyages</th><th>Tâches</th><th>Retard</th></tr></thead>
+        <tbody>`;
+    entrees.forEach(e => {
+      const cr = e.creneau || {};
+      html += `<tr>
+        <td><span class="badge badge-blue">C${e.camion_id}</span></td>
+        <td>Zone ${e.zone_id}</td>
+        <td class="font-mono" style="font-size:12px">${cr.debut||'—'} – ${cr.fin||'—'}</td>
+        <td class="font-mono">${e.duree_totale} min</td>
+        <td class="font-mono" style="font-size:12px">${e.volume_zone||'?'} / ${e.capacite_camion||'?'} kg</td>
+        <td class="font-mono" style="color:${(e.nb_voyages||1)>1?'var(--orange)':'var(--green)'};font-weight:bold">${e.nb_voyages||1} voyage${(e.nb_voyages||1)>1?'s':''}</td>
+        <td style="font-size:11px;color:var(--muted)">${(e.taches||[]).length} point(s)</td>
+        <td><span class="badge ${e.retard_estime>0?'badge-orange':'badge-green'}">${e.retard_estime} min</span>${e.urgent?'<span class="badge badge-red" style="margin-left:4px">🔴 URGENT</span>':''}</td>
+      </tr>`;
+    });
+    html += '</tbody></table></div></div>';
+  });
+  document.getElementById('planning-container').innerHTML = html || '<div class="alert alert-info">Aucune planification générée</div>';
+  showToast('Planning hebdomadaire généré!');
+}
+document.addEventListener('DOMContentLoaded', () => {
+  // Auto-planifier au chargement pour toujours avoir données fraîches
+  planifier();
+});
+</script>
+{% endblock %}

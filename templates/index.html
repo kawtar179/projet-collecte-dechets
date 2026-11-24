@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Tableau de Bord — VillePropre Agadir{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <div class="topbar-title">🏠 Tableau de Bord Principal</div>
+    <div class="topbar-sub">Système d'optimisation des tournées — Ville d'Agadir</div>
+  </div>
+  <div class="topbar-actions">
+    <button class="btn btn-primary" onclick="loadDashboard()">↻ Actualiser</button>
+  </div>
+</div>
+
+<div class="content">
+  <!-- Stats -->
+  <div class="grid grid-4 mb-4" id="stats-row">
+    <div class="stat-card">
+      <div class="stat-value" id="nb-points">—</div>
+      <div class="stat-label">📍 Points de collecte</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="nb-zones">—</div>
+      <div class="stat-label">📐 Zones actives</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="nb-camions">—</div>
+      <div class="stat-label">🚛 Camions disponibles</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" style="color:var(--green)" id="nb-creneaux">—</div>
+      <div class="stat-label">🕐 Créneaux horaires</div>
+    </div>
+  </div>
+
+  <div class="grid grid-2 mb-4">
+    <!-- Map overview -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🗺️ Carte d'Agadir — Vue Générale</div>
+        <span class="badge badge-blue">Leaflet.js</span>
+      </div>
+      <div class="card-body" style="padding:0">
+        <div class="map-container" style="height:380px">
+          <div id="map-overview"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- System levels -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">⚙️ Niveaux du Système</div>
+      </div>
+      <div class="card-body">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          {% for n,title,desc,color in [
+            (1,'Réseau Routier','Graphe Dijkstra — Distances optimales','var(--accent)'),
+            (2,'Affectation','Graphe biparti — Camion ↔ Zone','#a78bfa'),
+            (3,'Planification','Graphe triparti — Créneaux temporels','var(--green)'),
+            (4,'Tournées VRP','2-opt + Recherche Tabou','var(--orange)'),
+            (5,'IoT Dynamique','Multi-objectif + Simulation temps réel','var(--red)')
+          ] %}
+          <a href="/niveau{{n}}" style="text-decoration:none">
+          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;transition:all .2s;cursor:pointer" onmouseover="this.style.borderColor='{{color}}'" onmouseout="this.style.borderColor='var(--border)'">
+            <div style="background:{{color}}20;color:{{color}};font-size:12px;font-weight:700;font-family:var(--mono);padding:6px 10px;border-radius:7px;min-width:32px;text-align:center">N{{n}}</div>
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:600">{{title}}</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:1px">{{desc}}</div>
+            </div>
+            <span style="color:var(--muted);font-size:16px">→</span>
+          </div>
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick actions -->
+  <div class="grid grid-3">
+    <div class="card">
+      <div class="card-header"><div class="card-title">⚡ Actions Rapides</div></div>
+      <div class="card-body" style="display:flex;flex-direction:column;gap:8px">
+        <a href="/niveau1" class="btn btn-secondary">🔗 Calculer distances (N1)</a>
+        <a href="/niveau2" class="btn btn-secondary">🚛 Affecter camions (N2)</a>
+        <a href="/niveau4" class="btn btn-secondary">🛣️ Optimiser tournées (N4)</a>
+        <a href="/niveau5" class="btn btn-secondary">📡 Lancer simulation IoT (N5)</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">📊 Résumé Zones</div></div>
+      <div class="card-body">
+        <div id="zones-summary">Chargement...</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">🚚 Flotte</div></div>
+      <div class="card-body">
+        <div id="camions-summary">Chargement...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let mapOverview;
+async function loadDashboard() {
+  const data = await api('/api/data');
+
+  document.getElementById('nb-points').textContent = data.points_collecte.length;
+  document.getElementById('nb-zones').textContent = data.zones.length;
+  document.getElementById('nb-camions').textContent = data.camions.length;
+  document.getElementById('nb-creneaux').textContent = data.creneaux.length;
+
+  // Zones summary
+  const zs = document.getElementById('zones-summary');
+  zs.innerHTML = data.zones.map(z => `
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+      <span class="color-dot" style="background:${z.couleur}"></span>
+      <span style="flex:1;font-size:13px">${z.nom}</span>
+      <span class="badge ${z.priorite==='haute'?'badge-red':'badge-blue'}">${z.priorite}</span>
+    </div>`).join('');
+
+  // Camions summary
+  const cs = document.getElementById('camions-summary');
+  cs.innerHTML = data.camions.map(c => `
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+      <span class="color-dot" style="background:${c.couleur}"></span>
+      <span style="flex:1;font-size:13px">${c.nom}</span>
+      <span class="text-muted font-mono">${c.capacite} kg</span>
+    </div>`).join('');
+
+  // Map
+  if (!mapOverview) {
+    mapOverview = L.map('map-overview').setView([30.428, -9.598], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution:'© OpenStreetMap'
+    }).addTo(mapOverview);
+  } else {
+    mapOverview.eachLayer(l => { if (!(l instanceof L.TileLayer)) mapOverview.removeLayer(l); });
+  }
+
+  // Depot
+  const depotIcon = L.divIcon({html:`<div style="background:#f59e0b;width:16px;height:16px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4)"></div>`,iconSize:[16,16],iconAnchor:[8,8],className:''});
+  if (data.depot.lat) {
+    L.marker([data.depot.lat, data.depot.lon], {icon:depotIcon})
+     .addTo(mapOverview)
+     .bindPopup(`<b>🏭 ${data.depot.nom}</b>`);
+  }
+
+  // Points
+  data.points_collecte.forEach(p => {
+    if (!p.lat) return;
+    const icon = L.divIcon({html:`<div style="background:#3b82f6;width:10px;height:10px;border-radius:50%;border:2px solid #fff"></div>`,iconSize:[10,10],iconAnchor:[5,5],className:''});
+    L.marker([p.lat, p.lon], {icon}).addTo(mapOverview)
+     .bindPopup(`<b>${p.nom}</b><br>${p.adresse}`);
+  });
+
+  // Zone circles
+  data.zones.forEach(z => {
+    if (!z.centre_lat) return;
+    L.circle([z.centre_lat, z.centre_lon], {
+      radius: 600, color: z.couleur, fillColor: z.couleur, fillOpacity: 0.12, weight: 2
+    }).addTo(mapOverview).bindPopup(`<b>${z.nom}</b><br>Vol: ${z.volume_moyen} kg`);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', loadDashboard);
+</script>
+{% endblock %}

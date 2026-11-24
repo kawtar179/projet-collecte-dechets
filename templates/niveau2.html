@@ -1,0 +1,599 @@
+{% extends "base.html" %}
+{% block title %}Niveau 2 — Carte & Affectation{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <div class="topbar-title">🚛 Niveau 2 — Carte Agadir & Affectation</div>
+    <div class="topbar-sub">Graphe biparti · CRUD Points/Zones/Camions · Visualisation carte</div>
+  </div>
+  <div class="topbar-actions">
+    <span class="badge badge-purple niveau-pill n2">N2</span>
+    <button class="btn btn-primary" onclick="lancerAffectation()">▶ Affecter Camions</button>
+  </div>
+</div>
+<div class="content">
+  <div class="tabs" data-tabs>
+    <div class="tab active" data-tab="carte">🗺️ Carte Interactive</div>
+    <div class="tab" data-tab="tab-points">📍 Points Collecte</div>
+    <div class="tab" data-tab="tab-zones">📐 Zones</div>
+    <div class="tab" data-tab="tab-camions">🚚 Camions</div>
+    <div class="tab" data-tab="tab-resultats">📊 Résultats Affectation</div>
+  </div>
+
+  <!-- CARTE -->
+  <div class="tab-content active" data-tab="carte">
+    <div class="grid grid-2" style="gap:16px">
+      <div class="card" style="grid-column:1/-1">
+        <div class="card-header">
+          <div class="card-title">🗺️ Carte Agadir — Zones & Affectation des Camions</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn btn-sm btn-secondary" onclick="togglePoints()">📍 Points</button>
+            <button class="btn btn-sm btn-secondary" onclick="toggleZones()">📐 Zones</button>
+            <button class="btn btn-sm btn-secondary" onclick="resetMapView()">🎯 Recentrer</button>
+          </div>
+        </div>
+        <div style="height:500px;border-radius:0 0 12px 12px;overflow:hidden">
+          <div id="map2" style="height:100%;width:100%"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card mt-3">
+      <div class="card-header"><div class="card-title">🎨 Légende & Résumé Affectation</div></div>
+      <div class="card-body" id="legend-container">
+        <p class="text-muted">Cliquez sur "Affecter Camions" pour voir les résultats sur la carte.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- POINTS CRUD -->
+  <div class="tab-content" data-tab="tab-points">
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">➕ Ajouter un Point de Collecte</div>
+        </div>
+        <div class="card-body">
+          <div class="form-group">
+            <label class="form-label">Nom du point</label>
+            <input class="form-input" id="pt-nom" placeholder="Ex: Quartier Tilila">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Adresse</label>
+            <input class="form-input" id="pt-adresse" placeholder="Ex: Rue 20 Mars, Agadir">
+          </div>
+          <div class="grid grid-2">
+            <div class="form-group">
+              <label class="form-label">Latitude (Agadir ≈ 30.42)</label>
+              <input class="form-input" id="pt-lat" type="number" step="0.0001" placeholder="30.4250" value="30.4250">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Longitude (Agadir ≈ -9.59)</label>
+              <input class="form-input" id="pt-lon" type="number" step="0.0001" placeholder="-9.5900" value="-9.5900">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Demande (kg)</label>
+            <input class="form-input" id="pt-demande" type="number" value="100">
+          </div>
+          <button class="btn btn-primary" style="width:100%" onclick="addPoint()">➕ Ajouter Point</button>
+          <div id="map-add-hint" class="alert alert-info mt-3" style="font-size:12px">
+            💡 Ou cliquez directement sur la carte dans l'onglet "Carte Interactive" pour placer un point
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📍 Liste des Points</div>
+          <button class="btn btn-sm btn-secondary" onclick="loadPoints()">↻</button>
+        </div>
+        <div class="card-body" style="padding:0;max-height:450px;overflow-y:auto">
+          <table class="table" id="points-table">
+            <thead><tr><th>ID</th><th>Nom</th><th>Coords</th><th>Demande</th><th>Actions</th></tr></thead>
+            <tbody id="points-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ZONES CRUD -->
+  <div class="tab-content" data-tab="tab-zones">
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-header"><div class="card-title">➕ Ajouter une Zone</div></div>
+        <div class="card-body">
+          <div class="form-group">
+            <label class="form-label">Nom de la zone</label>
+            <input class="form-input" id="zone-nom" placeholder="Ex: Zone Est">
+          </div>
+          <div class="grid grid-2">
+            <div class="form-group">
+              <label class="form-label">Volume moyen (kg)</label>
+              <input class="form-input" id="zone-vol" type="number" value="300">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Priorité</label>
+              <select class="form-select" id="zone-prior">
+                <option value="normale">Normale</option>
+                <option value="haute">Haute</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Centre Lat / Lon</label>
+            <div class="grid grid-2">
+              <input class="form-input" id="zone-lat" type="number" step="0.0001" placeholder="30.4280">
+              <input class="form-input" id="zone-lon" type="number" step="0.0001" placeholder="-9.5980">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Couleur</label>
+            <input type="color" class="form-input" id="zone-color" value="#3498db" style="height:40px;padding:4px">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Points inclus (IDs, séparés par virgule)</label>
+            <input class="form-input" id="zone-points" placeholder="Ex: 1,2,3">
+          </div>
+          <button class="btn btn-primary" style="width:100%" onclick="addZone()">➕ Ajouter Zone</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📐 Liste des Zones</div>
+          <button class="btn btn-sm btn-secondary" onclick="loadZones()">↻</button>
+        </div>
+        <div class="card-body" style="padding:0;max-height:450px;overflow-y:auto">
+          <table class="table">
+            <thead><tr><th>ID</th><th>Nom</th><th>Volume</th><th>Priorité</th><th>Actions</th></tr></thead>
+            <tbody id="zones-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CAMIONS CRUD -->
+  <div class="tab-content" data-tab="tab-camions">
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-header"><div class="card-title">➕ Ajouter un Camion</div></div>
+        <div class="card-body">
+          <div class="form-group">
+            <label class="form-label">Nom du camion</label>
+            <input class="form-input" id="cam-nom" placeholder="Ex: Camion F6">
+          </div>
+          <div class="grid grid-2">
+            <div class="form-group">
+              <label class="form-label">Capacité (kg)</label>
+              <input class="form-input" id="cam-cap" type="number" value="4000">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Coût fixe (DH/j)</label>
+              <input class="form-input" id="cam-cout" type="number" value="170">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Zones accessibles (IDs)</label>
+            <input class="form-input" id="cam-zones" placeholder="Ex: 1,2,3,4">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Couleur</label>
+            <input type="color" class="form-input" id="cam-color" value="#e74c3c" style="height:40px;padding:4px">
+          </div>
+          <button class="btn btn-primary" style="width:100%" onclick="addCamion()">➕ Ajouter Camion</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🚚 Liste des Camions</div>
+          <button class="btn btn-sm btn-secondary" onclick="loadCamions()">↻</button>
+        </div>
+        <div class="card-body" style="padding:0;max-height:450px;overflow-y:auto">
+          <table class="table">
+            <thead><tr><th>ID</th><th>Nom</th><th>Capacité</th><th>Zones</th><th>Actions</th></tr></thead>
+            <tbody id="camions-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULTATS -->
+  <div class="tab-content" data-tab="tab-resultats">
+    <div id="resultats-container">
+      <div class="alert alert-info">Lancez l'affectation pour voir les résultats</div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal édition -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span id="modal-title">Modifier</span>
+      <button class="btn btn-sm btn-secondary" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Annuler</button>
+      <button class="btn btn-primary" id="modal-save">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let map2, zoneLayersMap = [], pointLayersMap = [], affectationData = null;
+let showPts = true, showZns = true;
+
+async function initMap2() {
+  map2 = L.map('map2').setView([30.428, -9.598], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map2);
+  // Click to add point
+  map2.on('click', function(e) {
+    document.getElementById('pt-lat').value = e.latlng.lat.toFixed(5);
+    document.getElementById('pt-lon').value = e.latlng.lng.toFixed(5);
+    L.popup().setLatLng(e.latlng).setContent('📍 Coordonnées copiées dans le formulaire').openOn(map2);
+  });
+  await refreshMap();
+  await loadPoints(); await loadZones(); await loadCamions();
+}
+
+async function refreshMap() {
+  const data = await api('/api/data');
+  // Clear
+  [...zoneLayersMap, ...pointLayersMap].forEach(l => map2.removeLayer(l));
+  zoneLayersMap = []; pointLayersMap = [];
+
+  // Depot
+  const depIcon = L.divIcon({html:`<div style="background:#f59e0b;width:20px;height:20px;border-radius:4px;border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-size:10px">🏭</div>`,iconSize:[20,20],iconAnchor:[10,10],className:''});
+  if (data.depot.lat) {
+    const m = L.marker([data.depot.lat,data.depot.lon],{icon:depIcon}).addTo(map2).bindPopup(`<b>🏭 Dépôt Central</b>`);
+    pointLayersMap.push(m);
+  }
+
+  // Zones circles
+  data.zones.forEach(z => {
+    if (!z.centre_lat) return;
+    const circle = L.circle([z.centre_lat, z.centre_lon], {
+      radius: 600, color: z.couleur, fillColor: z.couleur, fillOpacity: 0.15, weight: 2, dashArray: affectationData ? null : '6 3'
+    }).addTo(map2).bindPopup(`<b>${z.nom}</b><br>Volume: ${z.volume_moyen} kg<br>Priorité: ${z.priorite}`);
+    zoneLayersMap.push(circle);
+    // Zone label
+    const label = L.divIcon({html:`<div style="background:${z.couleur}dd;color:#fff;font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px;white-space:nowrap">${z.nom}</div>`,className:'',iconAnchor:[0,0]});
+    const lm = L.marker([z.centre_lat, z.centre_lon], {icon:label, interactive:false}).addTo(map2);
+    zoneLayersMap.push(lm);
+  });
+
+  // Points
+  data.points_collecte.forEach(p => {
+    if (!p.lat) return;
+    let color = '#3b82f6';
+    if (affectationData) {
+      for (const item of affectationData.affectation) {
+        if (item.zones_details && item.zones_details.some(z => z.points && z.points.includes(p.id))) {
+          color = item.camion_couleur;
+          break;
+        }
+      }
+    }
+    const icon = L.divIcon({html:`<div style="background:${color};width:13px;height:13px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,iconSize:[13,13],iconAnchor:[6,6],className:''});
+    const m = L.marker([p.lat,p.lon],{icon}).addTo(map2)
+      .bindPopup(`<b>${p.nom}</b><br>${p.adresse}<br>Demande: ${p.demande} kg`);
+    pointLayersMap.push(m);
+  });
+
+  // If affectation, draw camion positions
+  if (affectationData) {
+    drawAffectationOnMap(data);
+  }
+}
+
+function drawAffectationOnMap(data) {
+  affectationData.affectation.forEach(item => {
+    item.zones_details.forEach(z => {
+      if (!z.centre_lat) return;
+      const camIcon = L.divIcon({html:`<div style="background:${item.camion_couleur};color:#fff;font-size:10px;font-weight:700;padding:4px 7px;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,.4)">🚛 C${item.camion_id}</div>`,className:'',iconAnchor:[20,12]});
+      const m = L.marker([z.centre_lat, z.centre_lon], {icon:camIcon}).addTo(map2)
+        .bindPopup(`<b>Camion ${item.camion_nom}</b><br>Zone: ${z.nom}<br>Charge: ${item.charge_totale} kg`);
+      zoneLayersMap.push(m);
+    });
+  });
+}
+
+function togglePoints() { showPts = !showPts; pointLayersMap.forEach(l => showPts ? l.addTo(map2) : map2.removeLayer(l)); }
+function toggleZones() { showZns = !showZns; zoneLayersMap.forEach(l => showZns ? l.addTo(map2) : map2.removeLayer(l)); }
+function resetMapView() { map2.setView([30.428, -9.598], 13); }
+
+async function lancerAffectation() {
+  const btn = document.querySelector('.btn-primary');
+  btn.innerHTML = '<span class="spinner"></span> Calcul...';
+  const data = await api('/api/niveau2/affecter', 'POST');
+  btn.innerHTML = '▶ Affecter Camions';
+  if (!data.success) { showToast(data.error || 'Erreur', 'error'); return; }
+  affectationData = data;
+  await refreshMap();
+  afficherResultats(data);
+  renderLegende(data);
+  showToast('Affectation terminée avec succès!');
+  // Switch to results tab
+  document.querySelector('[data-tab="tab-resultats"]').click();
+}
+
+function afficherResultats(data) {
+  let html = `<div class="grid grid-3 mb-4">
+    <div class="stat-card"><div class="stat-value font-mono" style="color:var(--accent)">${data.statistiques.nombre_camions_utilises}</div><div class="stat-label">Camions utilisés</div></div>
+    <div class="stat-card"><div class="stat-value font-mono">${data.statistiques.charge_moyenne}</div><div class="stat-label">Charge moyenne (kg)</div></div>
+    <div class="stat-card"><div class="stat-value font-mono" style="color:${data.valide?'var(--green)':'var(--red)'}">${data.valide?'✓ Valide':'✗ Invalide'}</div><div class="stat-label">Contraintes</div></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-title">📋 Détails de l'Affectation</div></div>
+    <div class="card-body" style="padding:0">
+    <table class="table">
+      <thead><tr><th>Camion</th><th>Zones affectées</th><th>Charge totale</th><th>Capacité</th><th>Voyages</th><th>Utilisation</th><th>Coût estimé</th></tr></thead>
+      <tbody>`;
+  data.affectation.forEach(item => {
+    const surcharge = item.charge_totale > (item.capacite_camion || Infinity);
+    html += `<tr>
+      <td><span class="color-dot" style="background:${item.camion_couleur}"></span> ${item.camion_nom || 'C'+item.camion_id}</td>
+      <td>${item.zones_details.map(z=>`<span class="badge badge-blue">${z.nom}</span>`).join(' ')}</td>
+      <td class="font-mono" style="color:${surcharge?'var(--orange)':'inherit'}">${item.charge_totale} kg</td>
+      <td class="font-mono">${item.capacite_camion || '?'} kg</td>
+      <td class="font-mono" style="color:${item.nb_voyages>1?'var(--orange)':'var(--green)'};font-weight:bold">${item.nb_voyages} voyage${item.nb_voyages>1?'s':''}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="progress-bar" style="width:80px"><div class="progress-fill" style="width:${Math.min(100,item.pourcentage_utilisation)}%;background:${item.pourcentage_utilisation>100?'var(--red)':item.pourcentage_utilisation>70?'var(--orange)':'var(--green)'}"></div></div>
+          <span class="font-mono" style="font-size:12px;color:${item.pourcentage_utilisation>100?'var(--red)':'inherit'}">${item.pourcentage_utilisation}%</span>
+        </div>
+      </td>
+      <td class="font-mono">${item.cout_estime} DH</td>
+    </tr>`;
+  });
+  html += `</tbody></table></div></div>`;
+  if (data.statistiques.zones_non_affectees.length > 0) {
+    html += `<div class="alert alert-error mt-3">⚠️ Zones non affectées: ${data.statistiques.zones_non_affectees.join(', ')}</div>`;
+  }
+  document.getElementById('resultats-container').innerHTML = html;
+}
+
+function renderLegende(data) {
+  const div = document.getElementById('legend-container');
+  div.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:12px">' +
+    data.affectation.filter(a=>a.zones_details.length>0).map(item => `
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 14px;min-width:160px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+          <span class="color-dot" style="background:${item.camion_couleur}"></span>
+          <b style="font-size:13px">${item.camion_nom||'C'+item.camion_id}</b>
+        </div>
+        <div style="font-size:11px;color:var(--muted)">${item.zones_details.map(z=>z.nom).join(', ')}</div>
+        <div class="font-mono" style="font-size:12px;margin-top:4px;color:var(--accent)">${item.charge_totale} kg / ${item.capacite_camion||'?'} kg &bull; ${item.nb_voyages} voyage${item.nb_voyages>1?'s':''}</div>
+      </div>`).join('') + '</div>';
+}
+
+// CRUD Points
+async function loadPoints() {
+  const r = await api('/api/points');
+  const tbody = document.getElementById('points-tbody');
+  tbody.innerHTML = [...(r.depot ? [{...r.depot, nom:r.depot.nom+' (dépôt)', isDepot:true}] : []),
+    ...(r.points||[])].map(p => `
+    <tr>
+      <td class="font-mono">#${p.id}</td>
+      <td>${p.nom}</td>
+      <td class="font-mono" style="font-size:11px">${p.lat?`${p.lat.toFixed(4)},${p.lon.toFixed(4)}`:'—'}</td>
+      <td class="font-mono">${p.demande||'—'}</td>
+      <td>${p.isDepot ? '' : `
+        <button class="btn btn-sm btn-secondary" onclick="editPoint(${p.id})">✏️</button>
+        <button class="btn btn-sm btn-danger" onclick="deletePoint(${p.id})">🗑</button>`}</td>
+    </tr>`).join('');
+}
+
+async function addPoint() {
+  const nom = document.getElementById('pt-nom').value.trim();
+  if (!nom) { showToast('Nom requis', 'error'); return; }
+  const r = await api('/api/points', 'POST', {
+    nom, adresse: document.getElementById('pt-adresse').value,
+    lat: parseFloat(document.getElementById('pt-lat').value),
+    lon: parseFloat(document.getElementById('pt-lon').value),
+    demande: parseInt(document.getElementById('pt-demande').value)||100,
+    x: 0, y: 0
+  });
+  if (r.success) { showToast('Point ajouté — Recalcul en cours...'); await loadPoints(); await lancerAffectation(); }
+  else showToast(r.error, 'error');
+}
+
+async function deletePoint(id) {
+  if (!confirm('Supprimer ce point ?')) return;
+  const r = await api(`/api/points/${id}`, 'DELETE');
+  if (r.success) {
+    showToast('Point supprimé — Recalcul en cours...');
+    await loadPoints();
+    await loadZones(); // zones mises a jour (point retiré)
+    await lancerAffectation(); // recalcul affectation + carte
+  }
+}
+
+async function editPoint(id) {
+  const r = await api('/api/points');
+  const p = r.points.find(x => x.id===id);
+  if (!p) return;
+  document.getElementById('modal-title').textContent = `Modifier Point #${id}`;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="e-nom" value="${p.nom}"></div>
+    <div class="form-group"><label class="form-label">Adresse</label><input class="form-input" id="e-adresse" value="${p.adresse||''}"></div>
+    <div class="grid grid-2">
+      <div class="form-group"><label class="form-label">Latitude</label><input class="form-input" id="e-lat" type="number" step="0.0001" value="${p.lat||''}"></div>
+      <div class="form-group"><label class="form-label">Longitude</label><input class="form-input" id="e-lon" type="number" step="0.0001" value="${p.lon||''}"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Demande (kg)</label><input class="form-input" id="e-demande" type="number" value="${p.demande||100}"></div>`;
+  document.getElementById('modal-save').onclick = async () => {
+    const r2 = await api(`/api/points/${id}`, 'PUT', {
+      nom: document.getElementById('e-nom').value,
+      adresse: document.getElementById('e-adresse').value,
+      lat: parseFloat(document.getElementById('e-lat').value),
+      lon: parseFloat(document.getElementById('e-lon').value),
+      demande: parseInt(document.getElementById('e-demande').value)
+    });
+    if (r2.success) { showToast('Point mis à jour — Recalcul en cours...'); closeModal(); await loadPoints(); await lancerAffectation(); }
+  };
+  document.getElementById('edit-modal').classList.add('show');
+}
+
+// CRUD Zones
+async function loadZones() {
+  const zones = await api('/api/zones');
+  document.getElementById('zones-tbody').innerHTML = zones.map(z => `
+    <tr>
+      <td><span class="color-dot" style="background:${z.couleur}"></span> #${z.id}</td>
+      <td>${z.nom}</td>
+      <td class="font-mono">${z.volume_moyen} kg</td>
+      <td><span class="badge ${z.priorite==='haute'?'badge-red':'badge-blue'}">${z.priorite}</span></td>
+      <td>
+        <button class="btn btn-sm btn-secondary" onclick="editZone(${z.id})">✏️</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteZone(${z.id})">🗑</button>
+      </td>
+    </tr>`).join('');
+}
+
+async function addZone() {
+  const nom = document.getElementById('zone-nom').value.trim();
+  if (!nom) { showToast('Nom requis', 'error'); return; }
+  const pts = document.getElementById('zone-points').value.split(',').map(x=>parseInt(x.trim())).filter(x=>!isNaN(x));
+  const lat = parseFloat(document.getElementById('zone-lat').value)||30.428;
+  const lon = parseFloat(document.getElementById('zone-lon').value)||-9.598;
+  const r = await api('/api/zones', 'POST', {
+    nom, volume_moyen: parseInt(document.getElementById('zone-vol').value)||300,
+    priorite: document.getElementById('zone-prior').value,
+    couleur: document.getElementById('zone-color').value,
+    points: pts, centre:{x:0,y:0}, centre_lat:lat, centre_lon:lon
+  });
+  if (r.success) { showToast('Zone ajoutée — Recalcul en cours...'); await loadZones(); await lancerAffectation(); }
+  else showToast(r.error, 'error');
+}
+
+async function deleteZone(id) {
+  if (!confirm('Supprimer cette zone ?')) return;
+  const r = await api(`/api/zones/${id}`, 'DELETE');
+  if (r.success) {
+    showToast('Zone supprimée — Recalcul en cours...');
+    await loadZones();
+    await lancerAffectation(); // recalcul affectation
+  }
+}
+
+async function editZone(id) {
+  const zones = await api('/api/zones');
+  const z = zones.find(x=>x.id===id);
+  if (!z) return;
+  document.getElementById('modal-title').textContent = `Modifier Zone #${id}`;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="e-nom" value="${z.nom}"></div>
+    <div class="grid grid-2">
+      <div class="form-group"><label class="form-label">Volume moyen</label><input class="form-input" id="e-vol" type="number" value="${z.volume_moyen}"></div>
+      <div class="form-group"><label class="form-label">Priorité</label><select class="form-select" id="e-prior"><option ${z.priorite==='normale'?'selected':''}>normale</option><option ${z.priorite==='haute'?'selected':''}>haute</option></select></div>
+    </div>
+    <div class="form-group"><label class="form-label">Couleur</label><input type="color" class="form-input" id="e-color" value="${z.couleur}" style="height:40px"></div>
+    <div class="form-group"><label class="form-label">Centre Lat</label><input class="form-input" id="e-lat" type="number" step="0.0001" value="${z.centre_lat||''}"></div>
+    <div class="form-group"><label class="form-label">Centre Lon</label><input class="form-input" id="e-lon" type="number" step="0.0001" value="${z.centre_lon||''}"></div>`;
+  document.getElementById('modal-save').onclick = async () => {
+    const r2 = await api(`/api/zones/${id}`, 'PUT', {
+      nom: document.getElementById('e-nom').value,
+      volume_moyen: parseInt(document.getElementById('e-vol').value),
+      priorite: document.getElementById('e-prior').value,
+      couleur: document.getElementById('e-color').value,
+      centre_lat: parseFloat(document.getElementById('e-lat').value),
+      centre_lon: parseFloat(document.getElementById('e-lon').value)
+    });
+    if (r2.success) { showToast('Zone mise à jour — Recalcul en cours...'); closeModal(); await loadZones(); await lancerAffectation(); }
+  };
+  document.getElementById('edit-modal').classList.add('show');
+}
+
+// CRUD Camions
+async function loadCamions() {
+  const camions = await api('/api/camions');
+  document.getElementById('camions-tbody').innerHTML = camions.map(c => `
+    <tr>
+      <td><span class="color-dot" style="background:${c.couleur}"></span> #${c.id}</td>
+      <td>${c.nom}</td>
+      <td class="font-mono">${c.capacite} kg</td>
+      <td class="font-mono" style="font-size:11px">[${(c.zones_accessibles||[]).join(',')}]</td>
+      <td>
+        <button class="btn btn-sm btn-secondary" onclick="editCamion(${c.id})">✏️</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteCamion(${c.id})">🗑</button>
+      </td>
+    </tr>`).join('');
+}
+
+async function addCamion() {
+  const nom = document.getElementById('cam-nom').value.trim();
+  if (!nom) { showToast('Nom requis', 'error'); return; }
+  const zones = document.getElementById('cam-zones').value.split(',').map(x=>parseInt(x.trim())).filter(x=>!isNaN(x));
+  const r = await api('/api/camions', 'POST', {
+    nom, capacite: parseInt(document.getElementById('cam-cap').value)||4000,
+    cout_fixe: parseInt(document.getElementById('cam-cout').value)||170,
+    zones_accessibles: zones, couleur: document.getElementById('cam-color').value
+  });
+  if (r.success) {
+    showToast('Camion ajouté — Recalcul en cours...');
+    loadCamions();
+    await lancerAffectation();
+  }
+  else showToast(r.error, 'error');
+}
+
+async function deleteCamion(id) {
+  if (!confirm('Supprimer ce camion?')) return;
+  const r = await api(`/api/camions/${id}`, 'DELETE');
+  if (r.success) {
+    showToast('Camion supprimé — Recalcul en cours...');
+    loadCamions();
+    await lancerAffectation();
+  }
+}
+
+async function editCamion(id) {
+  const camions = await api('/api/camions');
+  const c = camions.find(x=>x.id===id);
+  if (!c) return;
+  document.getElementById('modal-title').textContent = `Modifier Camion #${id}`;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="form-group"><label class="form-label">Nom</label><input class="form-input" id="e-nom" value="${c.nom}"></div>
+    <div class="grid grid-2">
+      <div class="form-group"><label class="form-label">Capacité (kg)</label><input class="form-input" id="e-cap" type="number" value="${c.capacite}"></div>
+      <div class="form-group"><label class="form-label">Coût fixe</label><input class="form-input" id="e-cout" type="number" value="${c.cout_fixe}"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Zones accessibles</label><input class="form-input" id="e-zones" value="${(c.zones_accessibles||[]).join(',')}"></div>
+    <div class="form-group"><label class="form-label">Couleur</label><input type="color" class="form-input" id="e-color" value="${c.couleur}" style="height:40px"></div>`;
+  document.getElementById('modal-save').onclick = async () => {
+    const zones = document.getElementById('e-zones').value.split(',').map(x=>parseInt(x.trim())).filter(x=>!isNaN(x));
+    const r2 = await api(`/api/camions/${id}`, 'PUT', {
+      nom: document.getElementById('e-nom').value,
+      capacite: parseInt(document.getElementById('e-cap').value),
+      cout_fixe: parseInt(document.getElementById('e-cout').value),
+      zones_accessibles: zones,
+      couleur: document.getElementById('e-color').value
+    });
+    if (r2.success) {
+      showToast('Camion mis à jour — Recalcul en cours...');
+      closeModal();
+      loadCamions();
+      // Relancer automatiquement l'affectation avec les nouvelles capacités
+      await lancerAffectation();
+    }
+  };
+  document.getElementById('edit-modal').classList.add('show');
+}
+
+function closeModal() { document.getElementById('edit-modal').classList.remove('show'); }
+document.getElementById('edit-modal').addEventListener('click', e => { if (e.target===e.currentTarget) closeModal(); });
+
+document.addEventListener('DOMContentLoaded', () => {
+  initMap2();
+  // Handle tab hash
+  const hash = location.hash.replace('#','');
+  if (hash) {
+    const tab = document.querySelector(`[data-tab="${hash}"]`);
+    if (tab) tab.click();
+  }
+});
+</script>
+{% endblock %}

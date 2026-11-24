@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}Niveau 4 — VRP Tournées{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <div class="topbar-title">🛣️ Niveau 4 — Optimisation VRP</div>
+    <div class="topbar-sub">Plus proche voisin → 2-opt → Recherche Tabou · Visualisation tournées</div>
+  </div>
+  <div class="topbar-actions">
+    <span class="badge badge-orange niveau-pill n4">N4</span>
+    <select class="form-select" id="iter-select" style="width:130px">
+      <option value="20">20 itérations</option>
+      <option value="50" selected>50 itérations</option>
+      <option value="100">100 itérations</option>
+    </select>
+    <button class="btn btn-primary" onclick="optimiser()">▶ Optimiser Tournées</button>
+  </div>
+</div>
+<div class="content">
+  <div class="grid grid-4 mb-4" id="perf-row" style="display:none">
+    <div class="stat-card">
+      <div class="stat-value font-mono" id="perf-dist" style="color:var(--accent)">—</div>
+      <div class="stat-label">Distance totale (km)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value font-mono" id="perf-util">—</div>
+      <div class="stat-label">Taux utilisation (%)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value font-mono" id="perf-amelio" style="color:var(--green)">—</div>
+      <div class="stat-label">Amélioration vs naïf</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value font-mono" id="perf-init">—</div>
+      <div class="stat-label">Distance initiale (km)</div>
+    </div>
+  </div>
+
+  <div class="grid grid-2">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🗺️ Carte des Tournées Optimisées</div>
+        <div id="pipeline-optim" style="margin-bottom:16px"></div>
+  <div id="legende-tournees" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
+      <div style="height:450px;border-radius:0 0 12px 12px;overflow:hidden">
+        <div id="map4" style="height:100%;width:100%"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">📋 Détail des Tournées</div></div>
+      <div class="card-body" style="padding:0;max-height:450px;overflow-y:auto" id="tournees-detail">
+        <div style="text-align:center;padding:40px;color:var(--muted)">
+          <div style="font-size:40px;margin-bottom:8px">🛣️</div>
+          <div>Lancez l'optimisation pour voir les tournées</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let map4;
+
+async function initMap4() {
+  map4 = L.map('map4').setView([30.428, -9.598], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map4);
+}
+
+async function optimiser() {
+  const btn = document.querySelector('.btn-primary');
+  btn.innerHTML = '<span class="spinner"></span> Optimisation...';
+  const iterations = parseInt(document.getElementById('iter-select').value);
+  const data = await api('/api/niveau4/optimiser', 'POST', {iterations});
+  btn.innerHTML = '▶ Optimiser Tournées';
+  if (!data.success) { showToast(data.error||'Erreur', 'error'); console.error(data.trace); return; }
+
+  const p = data.performance;
+  document.getElementById('perf-row').style.display = 'grid';
+  document.getElementById('perf-dist').textContent = p.distance_totale.toFixed(2);
+  document.getElementById('perf-util').textContent = p.taux_utilisation.toFixed(1) + '%';
+  document.getElementById('perf-amelio').textContent = '+' + p.amelioration_vs_initial.toFixed(1) + '%';
+  document.getElementById('perf-init').textContent = p.distance_initiale.toFixed(2);
+
+  // Afficher le pipeline d'optimisation
+  const pipeline = document.getElementById('pipeline-optim');
+  if (pipeline) {
+    pipeline.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;font-family:var(--mono)">
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:6px 12px">
+          📦 <b>N2 Affectation</b><br><span style="color:var(--muted)">${p.distance_initiale.toFixed(2)} km</span>
+        </div>
+        <span style="color:var(--muted)">→</span>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:6px 12px">
+          ✂️ <b>2-opt</b><br>
+          <span style="color:${p.gain_2opt>0?'var(--green)':'var(--muted)'}">
+            ${p.distance_apres_2opt.toFixed(2)} km ${p.gain_2opt>0?'(-'+p.gain_2opt+'%)':'(aucun gain)'}
+          </span>
+        </div>
+        <span style="color:var(--muted)">→</span>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:6px 12px">
+          🔁 <b>Tabou</b><br>
+          <span style="color:${p.gain_tabou>0?'var(--green)':'var(--muted)'}">
+            ${p.distance_totale.toFixed(2)} km ${p.gain_tabou>0?'(-'+p.gain_tabou+'%)':'(aucun gain)'}
+          </span>
+        </div>
+        <span style="color:var(--muted)">→</span>
+        <div style="background:var(--green);border-radius:6px;padding:6px 12px;color:#fff">
+          ✅ <b>Total : -${p.amelioration_vs_initial.toFixed(1)}%</b>
+        </div>
+      </div>`;
+  }
+
+  // Carte
+  map4.eachLayer(l => { if (!(l instanceof L.TileLayer)) map4.removeLayer(l); });
+
+  // Dépôt
+  const depIcon = L.divIcon({html:`<div style="background:#f59e0b;width:20px;height:20px;border-radius:4px;border:3px solid #fff;font-size:10px;display:flex;align-items:center;justify-content:center">🏭</div>`,iconSize:[20,20],iconAnchor:[10,10],className:''});
+  const allData = await api('/api/data');
+  if (allData.depot.lat) L.marker([allData.depot.lat,allData.depot.lon],{icon:depIcon}).addTo(map4).bindPopup('<b>🏭 Dépôt Central</b>');
+
+  const legende = document.getElementById('legende-tournees');
+  legende.innerHTML = '';
+  let detailHtml = '';
+
+  data.tournees.forEach((t, idx) => {
+    if (!t.coords || t.coords.length < 2) return;
+    const coords = t.coords.map(c => [c.lat, c.lon]);
+    // Ligne de tournée
+    L.polyline(coords, {color:t.couleur, weight:3, opacity:.85}).addTo(map4);
+    // Flèches sur la route
+    coords.forEach((c, i) => {
+      if (i===0) return; // skip depot start
+      const isDepot = t.coords[i].is_depot;
+      const icon = L.divIcon({
+        html:`<div style="background:${isDepot?'#f59e0b':t.couleur};width:${isDepot?12:10}px;height:${isDepot?12:10}px;border-radius:50%;border:2px solid #fff"></div>`,
+        iconSize:[10,10],iconAnchor:[5,5],className:''
+      });
+      const nom = t.coords[i].nom || 'Dépôt';
+      L.marker(c, {icon}).addTo(map4).bindPopup(`<b>${nom}</b><br>Tournée camion ${t.camion_id}`);
+    });
+    legende.innerHTML += `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px">
+      <span class="color-dot" style="background:${t.couleur}"></span>C${t.camion_id}
+    </span>`;
+    detailHtml += `
+      <div style="padding:14px;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span class="color-dot" style="background:${t.couleur}"></span>
+          <b style="font-size:14px">${t.nom_camion || 'Camion '+t.camion_id}</b>
+          <span class="badge badge-blue">${t.points_ordre.length-2} arrêts</span>
+        </div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:8px;word-break:break-all">
+          ${t.points_ordre.map((p,i) => `<span style="color:${i===0||i===t.points_ordre.length-1?'var(--orange)':'var(--text)'}">P${p}</span>`).join(' → ')}
+        </div>
+        <div class="grid grid-3" style="gap:8px">
+          <div class="stat-card" style="padding:8px">
+            <div class="stat-value font-mono" style="font-size:18px">${t.distance_totale.toFixed(2)}</div>
+            <div class="stat-label">km</div>
+          </div>
+          <div class="stat-card" style="padding:8px">
+            <div class="stat-value font-mono" style="font-size:18px;color:${t.charge_finale>t.capacite_max?'var(--orange)':' inherit'}">${t.charge_finale} / ${t.capacite_max} kg</div>
+            <div class="stat-label">Charge / Capacité</div>
+          </div>
+          <div class="stat-card" style="padding:8px">
+            <div class="stat-value font-mono" style="font-size:18px">${t.taux_chargement}%</div>
+            <div class="stat-label">% utilisation</div>
+          </div>
+          <div class="stat-card" style="padding:8px">
+            <div class="stat-value font-mono" style="font-size:18px">${t.couts.total}</div>
+            <div class="stat-label">DH coût</div>
+          </div>
+        </div>
+      </div>`;
+  });
+  document.getElementById('tournees-detail').innerHTML = detailHtml || '<div style="padding:20px;color:var(--muted)">Aucune tournée</div>';
+  showToast(`${data.tournees.length} tournées optimisées! +${p.amelioration_vs_initial.toFixed(1)}% vs naïf`);
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await initMap4();
+  // Auto-optimiser au chargement pour toujours avoir données fraîches
+  await optimiser();
+});
+</script>
+{% endblock %}
